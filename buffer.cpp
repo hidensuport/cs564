@@ -38,24 +38,40 @@ BufMgr::BufMgr(std::uint32_t bufs)
   clockHand = bufs - 1;
 }
 
-void BufMgr::advanceClock() {}
+void BufMgr::advanceClock() {
+  clockHand = (clockhand + 1)%(bufs - 1);
+}
 
-void BufMgr::allocBuf(FrameId& frame) {}
-
-void BufMgr::readPage(File& file, const PageId pageNo, Page*& page) {
-  FrameId framenum;
-  try{
-    this->hashTable.lookup( file, pageNo,  framenum);
-    bufDescTable.at(framenum).pinCnt+=1;
-    bufDescTable.at(framenum).refbit= true;
-    page = bufDescTable[framenum]->page;
+void BufMgr::allocBuf(FrameId& frame) {
+  bufMgr::advanceClock();
+  if(bufDescTable[clockHand].valid == false){
+    bufDescTable[clockHand].Set();
+    frame = clockHand;
     return;
   }
-  catch{
-
+  if(bufDescTable[clockHand].refbit == true){
+    bufDescTable[clockHand].refbit = false;
+    bufMgr::allocBuf(frame);
+  }
+  if(bufDescTable[clockHand].pinCnt > 0){
+    bufMgr::allocBuf(frame);
+  }
+  if(bufDescTable[clockHand].dirty == true){
+    bufDescTable[clockHand].file.flushFile();
+    bufDescTable[clockHand].Set();
+    frame = clockHand;
+    return;
+  }
+  if(bufDescTable[clockHand].dirty == false){
+    bufDescTable[clockHand].Set()
+    frame = clockHand;
+    return;
   }
 
+
 }
+
+void BufMgr::readPage(File& file, const PageId pageNo, Page*& page) {}
 
 void BufMgr::unPinPage(File& file, const PageId pageNo, const bool dirty) {}
 
