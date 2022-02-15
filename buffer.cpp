@@ -71,7 +71,29 @@ void BufMgr::allocBuf(FrameId& frame) {
 
 }
 
-void BufMgr::readPage(File& file, const PageId pageNo, Page*& page) {}
+void BufMgr::readPage(File& file, const PageId pageNo, Page*& page) {
+  FrameId framenum;
+  try{
+    this->hashTable.lookup( file, pageNo,  framenum);
+    bufDescTable.at(framenum).pinCnt+=1;
+    bufDescTable.at(framenum).refbit= true;
+    page = &bufPool.at(framenum);
+    return;
+  }
+  catch(HashNotFoundException e)
+    {
+        // if the page is not yet existed in the hashtable, allocate it and
+        // set the bufDescTable
+        // also, return the ptr to the page and its pageNo
+        FrameId frameFree;
+        allocBuf(frameFree);
+        bufPool.at(frameFree) = file.readPage(pageNo);
+        this->hashTable.insert(file, pageNo, frameFree);
+        bufDescTable.at(frameFree).Set(file, pageNo);
+        page = &bufPool[frameFree];
+    }
+
+}
 
 void BufMgr::unPinPage(File& file, const PageId pageNo, const bool dirty) {}
 
