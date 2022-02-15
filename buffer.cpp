@@ -38,9 +38,7 @@ BufMgr::BufMgr(std::uint32_t bufs)
   clockHand = bufs - 1;
 }
 
-void BufMgr::advanceClock() {
-  clockHand = (clockhand + 1)%(bufs - 1);
-}
+void BufMgr::advanceClock() {}
 
 void BufMgr::allocBuf(FrameId& frame) {
   bufMgr::advanceClock();
@@ -67,12 +65,11 @@ void BufMgr::allocBuf(FrameId& frame) {
     frame = clockHand;
     return;
   }
-
-
 }
 
 void BufMgr::readPage(File& file, const PageId pageNo, Page*& page) {
-  FrameId framenum;
+
+ FrameId framenum;
   try{
     this->hashTable.lookup( file, pageNo,  framenum);
     bufDescTable.at(framenum).pinCnt+=1;
@@ -92,11 +89,15 @@ void BufMgr::readPage(File& file, const PageId pageNo, Page*& page) {
         bufDescTable.at(frameFree).Set(file, pageNo);
         page = &bufPool[frameFree];
     }
-
+  
+  
+  
+  
+  
 }
 
 void BufMgr::unPinPage(File& file, const PageId pageNo, const bool dirty) {
-FrameId framenum;
+  FrameId framenum;
     try
     {
         // check if the page exist in the frame pool
@@ -116,13 +117,60 @@ FrameId framenum;
     }
     catch(HashNotFoundException e)
     {
-    }}
+    }
+}
 
-void BufMgr::allocPage(File& file, PageId& pageNo, Page*& page) {}
+void BufMgr::allocPage(File& file, PageId& pageNo, Page*& page) {
+
+  FrameId frameNumber;
+
+  allocBuf(frameNumber);
+
+  bufPool[frameNumber] = file.allocatePage();
+
+  page = &bufPool[frameNumber];
+
+  pageNo = page->page_number();
+
+  hashTable.insert(file, pageNo, frameNumber);
+
+  bufDescTable[frameNumber].Set(file, pageNo);
+
+
+}
 
 void BufMgr::flushFile(File& file) {}
 
-void BufMgr::disposePage(File& file, const PageId PageNo) {}
+void BufMgr::disposePage(File& file, const PageId PageNo) {
+
+
+  FrameId frameNo;
+
+  try {
+
+    hashTable.lookup(file, PageNo, frameNo);
+
+    if (bufDescTable[frameNo].pinCnt != 0) {
+
+      throw PagePinnedException(bufDescTable[frameNo].file.filename(), bufDescTable[frameNo].pageNo, bufDescTable[frameNo].frameNo);
+
+      
+
+    }
+
+    bufDescTable[frameNo].clear();
+    hashTable.remove(file, PageNo);
+    file.deletePage(PageNo);
+    return;
+
+  } catch(HashNotFoundException& e) {
+
+    file.deletePage(PageNo);
+    
+  }
+				  
+
+}
 
 void BufMgr::printSelf(void) {
   int validFrames = 0;
