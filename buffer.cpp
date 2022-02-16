@@ -38,33 +38,67 @@ BufMgr::BufMgr(std::uint32_t bufs)
   clockHand = bufs - 1;
 }
 
-void BufMgr::advanceClock() {}
+void BufMgr::advanceClock() {
+  clockHand = (clockHand + 1)%(bufDescTable.size() - 1); //Advances Clock and Rolls back over to zero
+}
 
 void BufMgr::allocBuf(FrameId& frame) {
-  bufMgr::advanceClock();
-  if(bufDescTable[clockHand].valid == false){
-    bufDescTable[clockHand].Set();
-    frame = clockHand;
-    return;
+  int validRemaining = bufDescTable.size();
+  int cases = 1;
+  while(validRemaining > 0){
+    switch(cases){
+      case(1): //Advances Clock and Checks if all pinCnts are 1
+        advanceClock();
+        if(bufDescTable.at(clockHand).pinCnt > 0){
+          validRemaining -= 1;
+        }
+        cases = 2;
+        break;
+      case(2):
+        if(bufDescTable.at(clockHand).valid == true){ //Checks Valid, if valid move on to checking refbit
+          cases = 3;
+          break;
+        }
+        else{ //Wasn't Valid Leaves to call function to set the frame
+          frame = clockHand;
+          return;
+        }
+      case(3):
+        if(bufDescTable.at(clockHand).refbit == true){ //If refbit was true, sets to false and sends back to start on next clock hand
+          bufDescTable.at(clockHand).refbit = false;
+          cases = 1;
+          break;
+        }
+        else{ //refbit was false so moves on to checking the pin count
+          cases = 4;
+          break;
+        }
+      case(4):
+        if(bufDescTable.at(clockHand).pinCnt > 0){ //if pincount is > 0 then sends back to start to check on next clock hand
+          cases = 1;
+          break;
+        }
+        else{ //pincount was 0 so moves on to checking if dirty or not
+          cases = 5;
+          break;
+        }
+        case(5): //if dirty removes from the hashtable before returning the frame
+          if(bufDescTable.at(clockHand).dirty == true){
+            hashTable.remove(bufDescTable.at(clockHand).file, bufDescTable.at(clockHand).pageNo);
+            frame = clockHand;
+            return;
+          }
+          else{ 
+            frame = clockHand;
+            return;
+          }
+    }
+
+      
+      
   }
-  if(bufDescTable[clockHand].refbit == true){
-    bufDescTable[clockHand].refbit = false;
-    bufMgr::allocBuf(frame);
-  }
-  if(bufDescTable[clockHand].pinCnt > 0){
-    bufMgr::allocBuf(frame);
-  }
-  if(bufDescTable[clockHand].dirty == true){
-    bufDescTable[clockHand].file.flushFile();
-    bufDescTable[clockHand].Set();
-    frame = clockHand;
-    return;
-  }
-  if(bufDescTable[clockHand].dirty == false){
-    bufDescTable[clockHand].Set()
-    frame = clockHand;
-    return;
-  }
+  throw BufferExceededException(); //If it makes it here it means that all pincounts were > 0 so buffer was exceeded
+  
 }
 
 void BufMgr::readPage(File& file, const PageId pageNo, Page*& page) {
