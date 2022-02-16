@@ -116,22 +116,30 @@ void BufMgr::readPage(File& file, const PageId pageNo, Page*& page) {
  FrameId framenum;
   try{
     this->hashTable.lookup( file, pageNo,  framenum);
+	  //use lookup call to find whether Page is in the buffer pool
     bufDescTable.at(framenum).pinCnt+=1;
+	  //Page is in the buffer pool. increment the pinCnt for the page  
+page parameter.
     bufDescTable.at(framenum).refbit= true;
+	  //set refbit to true
     page = &bufPool.at(framenum);
+	  //return a pointer to the frame
     return;
   }
   catch(HashNotFoundException e)
     {
-        // if the page is not yet existed in the hashtable, allocate it and
-        // set the bufDescTable
-        // also, return the ptr to the page and its pageNo
+        // if the page is not yet existed in the hashtable
         FrameId frameFree;
         allocBuf(frameFree);
+	// allocate a buffer frame
         bufPool.at(frameFree) = file.readPage(pageNo);
+	   // set the bufDescTable
         this->hashTable.insert(file, pageNo, frameFree);
+	  //read the page from disk into the buffer pool frame
         bufDescTable.at(frameFree).Set(file, pageNo);
+	  // set the bufDescTable
         page = &bufPool[frameFree];
+	  // also, return the ptr to the page and its pageNo
     }
   
   
