@@ -39,16 +39,26 @@ BufMgr::BufMgr(std::uint32_t bufs)
 }
 
 void BufMgr::advanceClock() {
-  clockHand = (clockHand + 1)%(bufDescTable.size() - 1); //Advances Clock and Rolls back over to zero
+  clockHand = (clockHand + 1)%(bufDescTable.size()); //Advances Clock and Rolls back over to zero
 }
 
 void BufMgr::allocBuf(FrameId& frame) {
   int validRemaining = bufDescTable.size();
   int cases = 1;
-  while(validRemaining > 0){
+  bool foundNoPin = false;
+  for(int i = 0; i < bufDescTable.size(); i++){
+    if(bufDescTable.at(i).pinCnt == 0){
+      foundNoPin = true;
+    }
+  }
+  if(!foundNoPin){
+    throw BufferExceededException();
+  }
+  while(validRemaining > 0){ 
     switch(cases){
       case(1): //Advances Clock and Checks if all pinCnts are 1
         advanceClock();
+        bufDescTable.at(clockHand).Print();
         if(bufDescTable.at(clockHand).pinCnt > 0){
           validRemaining -= 1;
         }
@@ -85,7 +95,7 @@ void BufMgr::allocBuf(FrameId& frame) {
         case(5): //if dirty removes from the hashtable before returning the frame
           if(bufDescTable.at(clockHand).dirty == true){
             hashTable.remove(bufDescTable.at(clockHand).file, bufDescTable.at(clockHand).pageNo);
-            frame = clockHand;
+            frame = clockHand;;
             return;
           }
           else{ 
@@ -166,7 +176,6 @@ void BufMgr::unPinPage(File& file, const PageId pageNo, const bool dirty) {
 void BufMgr::allocPage(File& file, PageId& pageNo, Page*& page) {
 
 
-
   FrameId frameNumber;
 
   allocBuf(frameNumber);
@@ -195,6 +204,7 @@ void BufMgr::flushFile(File& file) {
     }
 
     if(bufDescTable[i].file == file && bufDescTable[i].pinCnt > 0) {
+      std::cout << "\nflushed\n";
       throw PagePinnedException(file.filename(), bufDescTable[i].pageNo, bufDescTable[i].frameNo);
     }
 
@@ -232,7 +242,7 @@ void BufMgr::disposePage(File& file, const PageId PageNo) {
     hashTable.lookup(file, PageNo, frameNo);
 
     if (bufDescTable[frameNo].pinCnt != 0) {
-
+      std::cout << "\ndispose\n";
       throw PagePinnedException(bufDescTable[frameNo].file.filename(), bufDescTable[frameNo].pageNo, bufDescTable[frameNo].frameNo);
 
       
@@ -265,5 +275,7 @@ void BufMgr::printSelf(void) {
 
   std::cout << "Total Number of Valid Frames:" << validFrames << "\n";
 }
+
+
 
 }  // namespace badgerdb
