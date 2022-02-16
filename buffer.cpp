@@ -157,7 +157,9 @@ void BufMgr::unPinPage(File& file, const PageId pageNo, const bool dirty) {
        
         if(bufDescTable.at(framenum).pinCnt > 0) {
             bufDescTable.at(framenum).pinCnt-= 1;
+		//Decrements the pinCnt of the frame containing
             if(dirty == true) {
+		//sets the dirty bit if the dirty is true
                 bufDescTable.at(framenum).dirty = true;
             }
             return;
