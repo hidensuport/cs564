@@ -58,7 +58,6 @@ void BufMgr::allocBuf(FrameId& frame) {
     switch(cases){
       case(1): //Advances Clock and Checks if all pinCnts are 1
         advanceClock();
-        bufDescTable.at(clockHand).Print();
         if(bufDescTable.at(clockHand).pinCnt > 0){
           validRemaining -= 1;
         }
