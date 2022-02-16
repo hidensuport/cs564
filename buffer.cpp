@@ -120,7 +120,18 @@ void BufMgr::unPinPage(File& file, const PageId pageNo, const bool dirty) {
     }
 }
 
+
+/**
+ * @brief This function allocates a new empty page in our given file
+ * and is assigned accordingly to our buffer pool 
+ * 
+ * @param file  Our File object
+ * @param pageNo  Our page number assigned to our page in file
+ * @param page  This is our reference to our page pointer
+ */
 void BufMgr::allocPage(File& file, PageId& pageNo, Page*& page) {
+
+
 
   FrameId frameNumber;
 
@@ -139,8 +150,44 @@ void BufMgr::allocPage(File& file, PageId& pageNo, Page*& page) {
 
 }
 
-void BufMgr::flushFile(File& file) {}
 
+
+void BufMgr::flushFile(File& file) {
+
+  for(unsigned int i = 0; i < numBufs; i++) {
+
+    if(bufDescTable[i].valid == false && bufDescTable[i].file == file) {
+      throw BadBufferException(bufDescTable[i].frameNo, bufDescTable[i].dirty, bufDescTable[i].valid, bufDescTable[i].refbit);
+    }
+
+    if(bufDescTable[i].file == file && bufDescTable[i].pinCnt > 0) {
+      throw PagePinnedException(file.filename(), bufDescTable[i].pageNo, bufDescTable[i].frameNo);
+    }
+
+
+    if(bufDescTable[i].valid == true && bufDescTable[i].file == file) {
+
+      if(bufDescTable[i].dirty == true) {
+  bufDescTable[i].file.writePage(bufPool[i]);
+  bufDescTable[i].dirty = false;
+
+      }
+
+      hashTable.remove(bufDescTable[i].file, bufDescTable[i].pageNo);
+
+      bufDescTable[i].clear();
+
+    }
+
+  }
+}
+
+
+/**
+ * @brief This function deletes a page from a given filee
+ * @param file  Object of file
+ * @param PageNo  Page Number 
+ */
 void BufMgr::disposePage(File& file, const PageId PageNo) {
 
 
