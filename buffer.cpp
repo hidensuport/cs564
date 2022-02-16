@@ -54,7 +54,7 @@ void BufMgr::allocBuf(FrameId& frame) {
   if(!foundNoPin){
     throw BufferExceededException();
   }
-  while(validRemaining > 0){ 
+  while(true){ 
     switch(cases){
       case(1): //Advances Clock and Checks if all pinCnts are 1
         advanceClock();
@@ -94,8 +94,10 @@ void BufMgr::allocBuf(FrameId& frame) {
         }
         case(5): //if dirty removes from the hashtable before returning the frame
           if(bufDescTable.at(clockHand).dirty == true){
-            hashTable.remove(bufDescTable.at(clockHand).file, bufDescTable.at(clockHand).pageNo);
-            frame = clockHand;;
+            bufDescTable.at(clockHand).file.writePage(bufPool.at(clockHand));
+            hashTable.remove(bufDescTable.at(clockHand).file, bufDescTable.at(clockHand).pageNo);    
+            bufDescTable.at(clockHand).clear();       
+            frame = clockHand;
             return;
           }
           else{ 
@@ -107,7 +109,6 @@ void BufMgr::allocBuf(FrameId& frame) {
       
       
   }
-  throw BufferExceededException(); //If it makes it here it means that all pincounts were > 0 so buffer was exceeded
   
 }
 
@@ -198,13 +199,11 @@ void BufMgr::allocPage(File& file, PageId& pageNo, Page*& page) {
 void BufMgr::flushFile(File& file) {
 
   for(unsigned int i = 0; i < numBufs; i++) {
-
     if(bufDescTable[i].valid == false && bufDescTable[i].file == file) {
       throw BadBufferException(bufDescTable[i].frameNo, bufDescTable[i].dirty, bufDescTable[i].valid, bufDescTable[i].refbit);
     }
 
     if(bufDescTable[i].file == file && bufDescTable[i].pinCnt > 0) {
-      std::cout << "\nflushed\n";
       throw PagePinnedException(file.filename(), bufDescTable[i].pageNo, bufDescTable[i].frameNo);
     }
 
@@ -212,8 +211,8 @@ void BufMgr::flushFile(File& file) {
     if(bufDescTable[i].valid == true && bufDescTable[i].file == file) {
 
       if(bufDescTable[i].dirty == true) {
-  bufDescTable[i].file.writePage(bufPool[i]);
-  bufDescTable[i].dirty = false;
+        bufDescTable[i].file.writePage(bufPool[i]);
+        bufDescTable[i].dirty = false;
 
       }
 
