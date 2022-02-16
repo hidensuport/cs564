@@ -46,7 +46,7 @@ void BufMgr::allocBuf(FrameId& frame) {
   int validRemaining = bufDescTable.size();
   int cases = 1;
   bool foundNoPin = false;
-  for(int i = 0; i < bufDescTable.size(); i++){
+  for(int i = 0; i < bufDescTable.size(); i++){ //Checks to make sure that is at least 1 unpined page else throws a BufferExceededException
     if(bufDescTable.at(i).pinCnt == 0){
       foundNoPin = true;
     }
