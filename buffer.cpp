@@ -46,7 +46,7 @@ void BufMgr::allocBuf(FrameId& frame) {
   int validRemaining = bufDescTable.size();
   int cases = 1;
   bool foundNoPin = false;
-  for(int i = 0; i < bufDescTable.size(); i++){ //Checks to make sure that is at least 1 unpined page else throws a BufferExceededException
+  for(unsigned int i = 0; i < bufDescTable.size(); i++){ //Checks to make sure that is at least 1 unpined page else throws a BufferExceededException
     if(bufDescTable.at(i).pinCnt == 0){
       foundNoPin = true;
     }
@@ -116,14 +116,13 @@ void BufMgr::readPage(File& file, const PageId pageNo, Page*& page) {
  FrameId framenum;
   try{
     this->hashTable.lookup( file, pageNo,  framenum);
-	  //use lookup call to find whether Page is in the buffer pool
+    //use lookup call to find whether Page is in the buffer pool
     bufDescTable.at(framenum).pinCnt+=1;
-	  //Page is in the buffer pool. increment the pinCnt for the page  
-page parameter.
+    //Page is in the buffer pool. increment the pinCnt for the page parameter.
     bufDescTable.at(framenum).refbit= true;
-	  //set refbit to true
+    //set refbit to true
     page = &bufPool.at(framenum);
-	  //return a pointer to the frame
+    //return a pointer to the frame
     return;
   }
   catch(HashNotFoundException e)
@@ -131,15 +130,15 @@ page parameter.
         // if the page is not yet existed in the hashtable
         FrameId frameFree;
         allocBuf(frameFree);
-	// allocate a buffer frame
+  // allocate a buffer frame
         bufPool.at(frameFree) = file.readPage(pageNo);
-	   // set the bufDescTable
+     // set the bufDescTable
         this->hashTable.insert(file, pageNo, frameFree);
-	  //read the page from disk into the buffer pool frame
+    //read the page from disk into the buffer pool frame
         bufDescTable.at(frameFree).Set(file, pageNo);
-	  // set the bufDescTable
+    // set the bufDescTable
         page = &bufPool[frameFree];
-	  // also, return the ptr to the page and its pageNo
+    // also, return the ptr to the page and its pageNo
     }
   
   
@@ -157,9 +156,9 @@ void BufMgr::unPinPage(File& file, const PageId pageNo, const bool dirty) {
        
         if(bufDescTable.at(framenum).pinCnt > 0) {
             bufDescTable.at(framenum).pinCnt-= 1;
-		//Decrements the pinCnt of the frame containing
+    //Decrements the pinCnt of the frame containing
             if(dirty == true) {
-		//sets the dirty bit if the dirty is true
+    //sets the dirty bit if the dirty is true
                 bufDescTable.at(framenum).dirty = true;
             }
             return;
@@ -186,47 +185,70 @@ void BufMgr::unPinPage(File& file, const PageId pageNo, const bool dirty) {
 void BufMgr::allocPage(File& file, PageId& pageNo, Page*& page) {
 
 
+
+  
   FrameId frameNumber;
 
+  // Allocate a new buffer frame
   allocBuf(frameNumber);
 
+  // New page is created at specified frame
   bufPool[frameNumber] = file.allocatePage();
 
+  // Set page pointer to frame 
   page = &bufPool[frameNumber];
 
+  // Set page number
   pageNo = page->page_number();
 
+  // Insert file with page number and frame number into our hash table
   hashTable.insert(file, pageNo, frameNumber);
 
+  // And set our frame in the buffer
   bufDescTable[frameNumber].Set(file, pageNo);
 
 
 }
 
 
-
+/** 
+ * @brief This function writes out dirty pages and this function does
+ * so accordingly when frames are unpinned, or else exception is thrown
+ * @param file  Our File object
+ */
 void BufMgr::flushFile(File& file) {
 
+  // Loop through our frame analyzing each page and first check whether
+  // pages are valid and are unpinned. If conditions are satisfied for flushing
+  // then flush to disk accordingly or throw error whenever page found is unpinned
+  // or invalid
   for(unsigned int i = 0; i < numBufs; i++) {
+
+    // Throw error when page is invalid
     if(bufDescTable[i].valid == false && bufDescTable[i].file == file) {
       throw BadBufferException(bufDescTable[i].frameNo, bufDescTable[i].dirty, bufDescTable[i].valid, bufDescTable[i].refbit);
     }
 
+    // Throw error when page is pinned or in other words pin count is greater than zero
     if(bufDescTable[i].file == file && bufDescTable[i].pinCnt > 0) {
       throw PagePinnedException(file.filename(), bufDescTable[i].pageNo, bufDescTable[i].frameNo);
     }
 
 
+    // If our page is valid
     if(bufDescTable[i].valid == true && bufDescTable[i].file == file) {
 
+      // If our page is dirty than flush it to disk
       if(bufDescTable[i].dirty == true) {
         bufDescTable[i].file.writePage(bufPool[i]);
         bufDescTable[i].dirty = false;
 
       }
 
+      // Remove page from our hashtable
       hashTable.remove(bufDescTable[i].file, bufDescTable[i].pageNo);
 
+      // Call clear to clear out our page frame
       bufDescTable[i].clear();
 
     }
@@ -236,7 +258,7 @@ void BufMgr::flushFile(File& file) {
 
 
 /**
- * @brief This function deletes a page from a given filee
+ * @brief This function deletes a page from a given file
  * @param file  Object of file
  * @param PageNo  Page Number 
  */
@@ -249,14 +271,12 @@ void BufMgr::disposePage(File& file, const PageId PageNo) {
 
     hashTable.lookup(file, PageNo, frameNo);
 
+    // Throw error when page is pinend
     if (bufDescTable[frameNo].pinCnt != 0) {
-      std::cout << "\ndispose\n";
       throw PagePinnedException(bufDescTable[frameNo].file.filename(), bufDescTable[frameNo].pageNo, bufDescTable[frameNo].frameNo);
-
-      
-
     }
 
+    // Otherwise clear our page frame and delete
     bufDescTable[frameNo].clear();
     hashTable.remove(file, PageNo);
     file.deletePage(PageNo);
@@ -264,10 +284,12 @@ void BufMgr::disposePage(File& file, const PageId PageNo) {
 
   } catch(HashNotFoundException& e) {
 
-    file.deletePage(PageNo);
+    // Page was not found, so simply return
+    
+    return;
     
   }
-				  
+          
 
 }
 
